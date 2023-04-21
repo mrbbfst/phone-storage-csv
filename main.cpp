@@ -1,13 +1,15 @@
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include "lead.hpp"
 #include <string>
-#include <map>
+//#include <map>
 #include <unistd.h>
+#include <iomanip>
+#include <boost/statechart/state_machine.hpp>
+#include <boost/statechart/simple_state.hpp>
 
 #include <limits.h>
-
-using setT = std::map<std::string, Lead*>;
 
 std::string cwd() {
     char cwdp[PATH_MAX];
@@ -23,36 +25,27 @@ std::string _getpath(std::string filename) {
     return cwd()+"/"+filename+".csv";
 }
 
-bool checkIsEmpty(std::string filename) {
-    
-    std::fstream in;
-    in.open(_getpath(filename).c_str(), std::ios::in);
-    if(in) {
-        std::string firstline;
-        std::getline(in, firstline);
-        in.close();
-        if(firstline=="name,phone");
-        return false;
-    }
-    return true;
-}
-
-bool write(std::string filename, setT leads) {
+bool write(std::string filename, LeadSet leads) {
     std::string filepath = _getpath(filename);
-    bool isnewfile = checkIsEmpty(filename);
     std::ofstream out(filepath);
-    //if(isnewfile) {
-        out<<"name,phone\n";
-    //}
+    if(out) {
+    out<<"name,phone\n";
     Lead::write(out, leads);
     out.close();
     return true;
+    }
+    return false;
 }
 
-void print(setT leads) {
+void print(LeadSet leads) {
     int i = 0;
     for(auto item = leads.cbegin() ; item!=leads.cend();item++) {
-        std::cout << '(' << ++i << ") " << *(item->second);
+    std::cout << '(' << ++i << ") |"
+              << std::setiosflags(std::ios::left)
+              << std::setw(20) << std::setfill('.')
+              << std::string(*(item->second)).substr(0, std::string(*(item->second)).find(','))
+              << std::string(*(item->second)).substr( std::string(*(item->second)).find(',')+1,  std::string(*(item->second)).size())
+              << " |\n";
     }
 }
 
@@ -62,12 +55,26 @@ std::string getNumber() {
     return number;
 }
 
-int main(int argc, char**argv) {
+std::string getFileName(int argc, char**argv) {
+    if(argc==3&&std::string(argv[1]).find("-f" == 0 && std::string(argv[2]).size())) {
+        return argv[2];
+    } else {
+        std::cout<<"\nPut filename. It will created in current work directory.\n";
+        std::string fname;
+        std::cin>>fname;
+        return fname;
+    }
+}
 
-    std::cout<<"\nPut filename. It will created in current work directory.\n";
-    std::string fname;
-    std::cin>>fname;
-    std::map<std::string, Lead*> leadsSet = Lead::read(_getpath(fname));
+int main(int argc, char**argv) {
+    std::string fname = getFileName(argc,argv);
+    LeadSet leadsSet;
+    try {
+    leadsSet = Lead::read(_getpath(fname));
+    } catch(Lead::InvalidColumnName &e) {
+        std::cerr << e.what() << '\n';
+        return 1;
+    }
 
     bool isWork = true;
     
@@ -92,7 +99,8 @@ int main(int argc, char**argv) {
             }
             continue;
         }
-        number = getNumber();
+        //number = getNumber();
+        std::getline(std::cin, number);
 
         if(Lead::phoneNormalize(number)==nullptr) {
             std::cout << "\e[0;31mInvalid number.\e[0;0m\n";
@@ -103,6 +111,5 @@ int main(int argc, char**argv) {
         if(size==leadsSet.size())
             std::cout << "\033[1;33m(Already exist)\033[0m\n";
     }
-
     return 0;
 }

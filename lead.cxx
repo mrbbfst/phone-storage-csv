@@ -2,24 +2,17 @@
 
 Lead::Lead(std::string name, std::string number) {
     this->name=name;
-    //std::regex normalNumberPattern("");
-    //number.erase(remove(number.begin(),number.end(),' '),number.end());
-    std::string prefix ="";
-    if(number.find("38") != 0) {
-        prefix="38";
-    }
-    this->number= prefix + number;
-
+    this->number= *Lead::phoneNormalize(number);
 }
 
 std::ostream & operator<<(std::ostream &os,const Lead& lead) {
-    return os << lead.name << "," << lead.number + "\n";
+    return os << std::string(lead);//lead.name << "," << lead.number + "\n";
 }
 
-void Lead::write(std::ostream &os,const std::map<std::string, Lead*>leads) {
+void Lead::write(std::ostream &os,const LeadSet leads) {
     std::string buffer = "";
     for(auto item = leads.cbegin();item!=leads.cend();item++) {
-        buffer+= *(item->second);
+        buffer+= std::string(*(item->second))+std::string("\n");
     }
     os<<buffer;
 }
@@ -31,10 +24,8 @@ std::map<std::string, Lead*> Lead::read(std::string filename) {
     if(is) {
         std::string line;
         std::getline(is, line);
-        if(line=="") 
-            ;
-        else if(line!="name,phone")
-         ;  //throw exception
+        if(line!="name,phone")
+            throw Lead::InvalidColumnName();
         while(std::getline(is,line)) {
             result.insert({line.substr(line.find(",")+1, line.size()), 
                 new Lead(
@@ -46,20 +37,16 @@ std::map<std::string, Lead*> Lead::read(std::string filename) {
                     )
                     });  
         }
-
         is.close();
     }
     return result;
 }
 
-
-
 Lead::operator std::string() const {
-    return this->name+","+this->number+"\n";
+    return this->name+","+this->number;//+"\n";
 }
 
-std::string* Lead::phoneNormalize(std::string& number) {
-    
+inline std::string* Lead::phoneNormalize(std::string& number) {
     number.erase(std::remove_if(number.begin(), number.end(), [](int ch) {return ch==(int)'-';} ), number.end());
     number.erase(std::remove_if(number.begin(), number.end(), [](int ch) {return ch==(int)'(';} ), number.end());
     number.erase(std::remove_if(number.begin(), number.end(), [](int ch) {return ch==(int)')';} ), number.end());
@@ -75,10 +62,8 @@ std::string* Lead::phoneNormalize(std::string& number) {
         ;
     } else if(std::regex_match(number, smatch, pattern2)) {
         number="8"+number;
-
     } else if(std::regex_match(number, smatch, pattern3)) {
         number = "38"+number;
-
     }
     else return nullptr;
     return &number;
